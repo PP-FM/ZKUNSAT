@@ -268,7 +268,7 @@ resolution_raw = regularize(proofname)
 #print(proofname)
 chain_length =  GetChainLength(resolution_raw)
 #print(chain_length)
-sys.setrecursionlimit(chain_length * 2)
+sys.setrecursionlimit(chain_length * 4)
 
 
 resolution_unfold, length= unfold_chain(resolution_raw)
