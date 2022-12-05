@@ -246,6 +246,8 @@ def unfold_chain (resolution_list, nthread = 1):
                 if len(tmp_cls) > length:
                     length  = len(tmp_cls)
                 pivot_t.append(p)
+        if len(t.clause) > length:
+            length = len(t.clause)
         t.pivot = pivot_t
 
     return  resolution_list_c, length
