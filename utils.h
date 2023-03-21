@@ -17,7 +17,7 @@ using  namespace  NTL;
 using namespace emp;
 
 
-#define VAL_SZ 25
+#define VAL_SZ 61
 
 #define RAM_VAL_SZ 4
 
@@ -67,7 +67,6 @@ inline void multiply_const(block &val, block &mac,
         gfmul(x, cst, &val);//   cout << mac << endl;
     }
     gfmul(m, cst, &mac);
-
 }
 
 /*
@@ -210,8 +209,8 @@ inline void inverse(block& inv, block& input){
 }
 
 inline void fill_data_and_mac(block& d, block& m){
-    if (data_mac_pointer == PRE_F2K_BUFFER_SZ){
-        svole->extend_inplace(data, mac, PRE_F2K_BUFFER_MEM_SZ);
+    if (data_mac_pointer == svole->param.n){
+        svole->extend_inplace(data, mac, svole->param.n);
         data_mac_pointer = 0;
     }
     d = data[data_mac_pointer];

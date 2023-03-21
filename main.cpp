@@ -14,25 +14,32 @@ uint64_t constant;
 BoolIO <NetIO> *io;
 
 int main(int argc, char **argv) {
+    cout << "---- begin ----" << endl;
     constant = 1UL << (VAL_SZ - 2);
     parse_party_and_port(argv, &party, &port);
     BoolIO <NetIO> *ios[threads];
     for (int i = 0; i < threads; ++i)
         ios[i] = new BoolIO<NetIO>(new NetIO(party == ALICE ? nullptr : argv[3], port + i), party == ALICE);       
     char *prooffile = argv[4];
+    cout << "---- end of initialization 1 ----" << endl;
+
     setup_zk_bool < BoolIO < NetIO >> (ios, threads, party);
     ZKBoolCircExec <BoolIO<NetIO>> *exec = (ZKBoolCircExec < BoolIO < NetIO >> *)(CircuitExecution::circ_exec);
     io = exec->ostriple->io;
+    cout << "---- end of initialization 1 ----" << endl;
+
     ostriple = new F2kOSTriple <BoolIO<NetIO>>(party, exec->ostriple->threads, exec->ostriple->ios,
                                                exec->ostriple->ferret, exec->ostriple->pool);
     svole = ostriple->svole;
 
     data_mac_pointer = 0;
-    uint64_t test_n = N_REG;
+    uint64_t test_n = svole->param.n;;
     uint64_t mem_need = svole->byte_memory_need_inplace(test_n);
-    data = new block[PRE_F2K_BUFFER_MEM_SZ];
-    mac = new block[PRE_F2K_BUFFER_MEM_SZ];
-    svole->extend_inplace(data, mac, PRE_F2K_BUFFER_MEM_SZ);
+    cout << "---- end of initialization 2 ----" << endl;
+
+    data = new block[svole->param.n];
+    mac = new block[svole->param.n];
+    svole->extend_inplace(data, mac, svole->param.n);
     cout << "----set up----" << endl;
 
     GF2X P;

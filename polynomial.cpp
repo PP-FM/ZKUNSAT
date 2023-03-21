@@ -87,14 +87,18 @@ polynomial::polynomial(vector <uint64_t> roots) {
 }
 
 void polynomial::Evaluate(block &res, block &mres, block &input) const {
-    int degree = this->coefficient.size();
+    // cout << (input) << endl; 
+    int degree = this->coefficient.size(); 
     assert(degree > 2);
-    multiply_const(res, mres, this->coefficient[degree-1], mcoefficient[degree-1], input, ostriple->party);
-    compute_xor(res, mres, res, mres, this->coefficient[degree-2], mcoefficient[degree-2]);
-
-    for (int i = degree-3; i > 0 or i ==0; i--){
+    multiply_const(res, mres, this->coefficient[degree-1], this->mcoefficient[degree-1], input, ostriple->party);
+    // cout << "degree " << degree -1  << ": " << (res) << endl; 
+    compute_xor(res, mres, res, mres, this->coefficient[degree-2], this->mcoefficient[degree-2]);
+    // cout << "degree " << degree - 2 << ": " << (res) << endl; 
+    for (int i = degree-3; i > -1; i--){
         multiply_const(res, mres, res, mres, input, ostriple->party);
-        compute_xor(res, mres, res, mres, this->coefficient[i] , mcoefficient[i]);
+        // cout << "degree  mul" << i << ": " << (res) << endl; 
+        compute_xor(res, mres, res, mres, this->coefficient[i] ,this->mcoefficient[i]);
+        // cout << "degree  xor" << i << ": " << (res) << endl; 
     }
 }
 
@@ -104,10 +108,10 @@ void polynomial::Equal(const polynomial& lhs) const{
     // cout << r << endl;
     block res[2], mac[2];
     this->Evaluate(res[0], mac[0], r);
-    //cout << "?????" << endl;
+    // cout << "?????" << endl;
     lhs.Evaluate(res[1], mac[1], r);
     check_zero_MAC(mac[0]^mac[1]);
-
+    // cout << (mac[0]^mac[1] ) << endl; 
 }
 
 void polynomial::InnerProductEqual(vector<polynomial> &p1, vector<polynomial> &p2) {
@@ -128,6 +132,7 @@ void polynomial::InnerProductEqual(vector<polynomial> &p1, vector<polynomial> &p
     block resp, mresp;
     this->Evaluate(resp, mresp, r);
     check_zero_MAC(mresp^mres);
+   
 }
 
 void polynomial::ProductEqual(polynomial& p1, polynomial &p2) {
@@ -143,14 +148,27 @@ void polynomial::ProductEqual(polynomial& p1, polynomial &p2) {
     this->Evaluate(resp, mresp, r);
 
     check_zero_MAC(mresp^mres );
+    cout << " product block: " << (mresp^mres)  << endl; 
 }
 
 void polynomial::ConverseCheck(polynomial & lhs) {
+    // for (int i = 0; i < this-> coefficient.size(); i ++) cout << i << ":" << (this-> coefficient[i]) << ", mac: " << (this-> mcoefficient[i]) << endl; 
+    // cout << "========\n";
+    //for (int i = 0; i < lhs.coefficient.size(); i ++) cout << (lhs.coefficient[i]) << ", mac: " << (lhs.mcoefficient[i]) << endl; 
+
+
     io->flush();
     block r =io->get_hash_block();
+     cout << "====last coefficient=======" << endl;
     block converse_r = ((block) get_128uint_from_uint64(constant))^r;
+    cout << (lhs.coefficient[0] ^ this -> coefficient[0]) << endl; 
+    cout << (converse_r) << endl; 
+    cout << (r) << endl; 
     block xx, xm, yy, ym;
+    cout << "====rhs =======" << endl;
     this->Evaluate(xx, xm, r);
+    cout << "====lhs =======" << endl;
     lhs.Evaluate(yy, ym, converse_r);
     check_zero_MAC(xm^ym);
+    cout << "converse block: " << (xx ^ yy)  << endl; 
 }

@@ -245,7 +245,7 @@ def GetChainLength(resolution_list):
 proofname = sys.argv[1]
 resolution_raw = regularize(proofname)
 chain_length =  GetChainLength(resolution_raw)
-sys.setrecursionlimit(chain_length * 2)
+sys.setrecursionlimit(chain_length * 5)
 
 
 resolution_unfold, degree= unfold_chain(resolution_raw)

@@ -5,7 +5,7 @@ project(emp_private_refutation)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS "-msse4.1 -mrdseed -maes -mpclmul -O3 -pthread -w")
+set(CMAKE_CXX_FLAGS "-msse4.1 -mrdseed -maes -mpclmul -O3 -pthread -w -Wl,-rpath -Wl,LIBDIR")
 
 include_directories(include /home/ubuntu/emp-tool)
 include_directories(include /home/ubuntu/emp-zk)

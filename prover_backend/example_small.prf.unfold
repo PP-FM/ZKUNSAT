@@ -1,0 +1,21 @@
+index:  0  clause:  -5 1588  support:    pivot:   end:  0
+index:  1  clause:  -1588 1751  support:    pivot:   end:  0
+index:  2  clause:  -1822 5  support:    pivot:   end:  0
+index:  3  clause:  -1751 -2516  support:    pivot:   end:  0
+index:  4  clause:  1822 -2530  support:    pivot:   end:  0
+index:  5  clause:  2531 2516  support:    pivot:   end:  0
+index:  6  clause:  2530 2531  support:    pivot:   end:  0
+index:  7  clause:  -176 2532 -2531  support:    pivot:   end:  0
+index:  8  clause:  -2532  support:    pivot:   end:  0
+index:  9  clause:  176  support:    pivot:   end:  0
+index:  10  clause:  2532 -2531  support:  9 7  pivot:  176 end:  0
+index:  11  clause:  -2531  support:  10 8  pivot:  2532 end:  0
+index:  12  clause:  2530  support:  6 11  pivot:  2531 end:  0
+index:  13  clause:  2516  support:  5 11  pivot:  2531 end:  0
+index:  14  clause:  1822  support:  4 12  pivot:  -2530 end:  0
+index:  15  clause:  -1751  support:  3 13  pivot:  -2516 end:  0
+index:  16  clause:  5  support:  2 14  pivot:  -1822 end:  0
+index:  17  clause:  -1588  support:  1 15  pivot:  1751 end:  0
+index:  18  clause:  -5  support:  0 17  pivot:  1588 end:  0
+index:  19  clause:    support:  18 16  pivot:  -5 end:  0
+DEGREE: 7

@@ -11,14 +11,14 @@
 //
 
 #include "emp-zk/emp-zk.h"
-#include "ram-zk/ostriple.h"
+#include "emp-zk/extensions/ram-zk/ostriple.h"
 #include "clause.h"
 #include "commons.h"
 #define INDEX_SZ 20
 typedef vector<uint64_t> clause_raw;
 
 #include "emp-zk/emp-zk.h"
-#include "ram-zk/ostriple.h"
+#include "emp-zk/extensions/ram-zk/ostriple.h"
 
 
 inline void get_raw(vector<uint64_t>& raw, const clause& input){
