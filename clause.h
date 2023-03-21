@@ -84,7 +84,7 @@ inline void check_xres(clause& c0, clause& c1, clause cres, uint64_t pivot){
     vector<polynomial> witness_neg_pivot{witness[1], pivot_neg_polynomial};
     zero_p.InnerProductEqual(c0_res, witness_pivot);
     zero_p.InnerProductEqual(c1_res, witness_neg_pivot);
-    // pivot_neg_polynomial.ConverseCheck(pivot_polynomial);
+    pivot_neg_polynomial.ConverseCheck(pivot_polynomial);
 }
 
 

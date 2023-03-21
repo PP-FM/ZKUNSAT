@@ -21,12 +21,10 @@ int main(int argc, char **argv) {
     for (int i = 0; i < threads; ++i)
         ios[i] = new BoolIO<NetIO>(new NetIO(party == ALICE ? nullptr : argv[3], port + i), party == ALICE);       
     char *prooffile = argv[4];
-    cout << "---- end of initialization 1 ----" << endl;
 
     setup_zk_bool < BoolIO < NetIO >> (ios, threads, party);
     ZKBoolCircExec <BoolIO<NetIO>> *exec = (ZKBoolCircExec < BoolIO < NetIO >> *)(CircuitExecution::circ_exec);
     io = exec->ostriple->io;
-    cout << "---- end of initialization 1 ----" << endl;
 
     ostriple = new F2kOSTriple <BoolIO<NetIO>>(party, exec->ostriple->threads, exec->ostriple->ios,
                                                exec->ostriple->ferret, exec->ostriple->pool);
@@ -35,7 +33,6 @@ int main(int argc, char **argv) {
     data_mac_pointer = 0;
     uint64_t test_n = svole->param.n;;
     uint64_t mem_need = svole->byte_memory_need_inplace(test_n);
-    cout << "---- end of initialization 2 ----" << endl;
 
     data = new block[svole->param.n];
     mac = new block[svole->param.n];
@@ -51,11 +48,13 @@ int main(int argc, char **argv) {
     SetCoeff(P, 0, 1);
     GF2E::init(P);
 
+
     int ncls = 0, nres = 0;
 
     vector <CLS> clauses;
     vector <SPT> supports;
     vector <SPT> pivots;
+
 
     if (party == ALICE) {
         readproof(string(prooffile), DEGREE, clauses, supports, pivots, ncls, nres);

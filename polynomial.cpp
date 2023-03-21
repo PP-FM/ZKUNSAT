@@ -95,10 +95,13 @@ void polynomial::Evaluate(block &res, block &mres, block &input) const {
     compute_xor(res, mres, res, mres, this->coefficient[degree-2], this->mcoefficient[degree-2]);
     // cout << "degree " << degree - 2 << ": " << (res) << endl; 
     for (int i = degree-3; i > -1; i--){
+       // cout << "input " << (input) << endl; 
         multiply_const(res, mres, res, mres, input, ostriple->party);
-        // cout << "degree  mul" << i << ": " << (res) << endl; 
+      //  cout << "degree  mul " << i << ": " << (res) << endl; 
+        // check_MAC_valid(res, mres);
         compute_xor(res, mres, res, mres, this->coefficient[i] ,this->mcoefficient[i]);
-        // cout << "degree  xor" << i << ": " << (res) << endl; 
+       // cout << "degree  xor " << i << ": " << (res) << endl; 
+        // check_MAC_valid(res, mres);
     }
 }
 
@@ -148,27 +151,27 @@ void polynomial::ProductEqual(polynomial& p1, polynomial &p2) {
     this->Evaluate(resp, mresp, r);
 
     check_zero_MAC(mresp^mres );
-    cout << " product block: " << (mresp^mres)  << endl; 
+    // cout << " product block: " << (mresp^mres)  << endl; 
 }
 
 void polynomial::ConverseCheck(polynomial & lhs) {
     // for (int i = 0; i < this-> coefficient.size(); i ++) cout << i << ":" << (this-> coefficient[i]) << ", mac: " << (this-> mcoefficient[i]) << endl; 
     // cout << "========\n";
-    //for (int i = 0; i < lhs.coefficient.size(); i ++) cout << (lhs.coefficient[i]) << ", mac: " << (lhs.mcoefficient[i]) << endl; 
+    // for (int i = 0; i < lhs.coefficient.size(); i ++) cout << (lhs.coefficient[i]) << ", mac: " << (lhs.mcoefficient[i]) << endl; 
 
 
     io->flush();
     block r =io->get_hash_block();
-     cout << "====last coefficient=======" << endl;
+    //  cout << "====last coefficient=======" << endl;
     block converse_r = ((block) get_128uint_from_uint64(constant))^r;
-    cout << (lhs.coefficient[0] ^ this -> coefficient[0]) << endl; 
-    cout << (converse_r) << endl; 
-    cout << (r) << endl; 
+    // cout << (lhs.coefficient[0] ^ this -> coefficient[0]) << endl; 
+    //  cout << (converse_r) << endl; 
+    //  cout << (r) << endl; 
     block xx, xm, yy, ym;
-    cout << "====rhs =======" << endl;
+ //   cout << "====rhs =======" << endl;
     this->Evaluate(xx, xm, r);
-    cout << "====lhs =======" << endl;
+    // cout << "====lhs =======" << endl;
     lhs.Evaluate(yy, ym, converse_r);
     check_zero_MAC(xm^ym);
-    cout << "converse block: " << (xx ^ yy)  << endl; 
+    // cout << "converse block: " << (xx ^ yy)  << endl; 
 }
