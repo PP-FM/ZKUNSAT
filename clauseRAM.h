@@ -106,7 +106,7 @@ public:
             Integer h = getHash(access_record[i].second);
             block v, m;
             hash_and_mac(v, m, access_record[i].first, h);
-            HRecord.push_back((__uint128_t)v);
+            HRecord.emplace_back((__uint128_t)v);
             HRecord_mac.push_back(m);
         }
 
@@ -120,7 +120,7 @@ public:
             sorted_hash_value.push_back(h);
             block v, m;
             hash_and_mac(v, m, sorted_index[i], h);
-            sorted_HRecord.push_back((__uint128_t)v);
+            sorted_HRecord.emplace_back((__uint128_t)v);
             sorted_HRecord_mac.push_back(m);
         }
 
