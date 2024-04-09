@@ -182,7 +182,8 @@ int main(int argc, char **argv) {
             pvt.push_back(pp);
         }
 
-        auto cost = check_chain(chain, pvt, i, formula);
+        bool last_clause = (i == (ncls - 1));
+        auto cost = check_chain(chain, pvt, i, formula, last_clause);
         cost_resolve = cost_resolve + cost.second;
         cost_access = cost_access + cost.first;
     }
