@@ -337,7 +337,7 @@ public:
     }
 };
 
-inline pair<double, double> check_chain(vector<Integer>& indice, vector<uint64_t> pivots, int ptr, clauseRAM<BoolIO<NetIO>>* formula){
+inline pair<double, double> check_chain(vector<Integer>& indice, vector<uint64_t> pivots, int ptr, clauseRAM<BoolIO<NetIO>>* formula, bool last_clause){
     double cost_resolve = 0;
     double cost_access = 0;
     auto timer_0 = chrono::high_resolution_clock::now();
@@ -377,6 +377,13 @@ inline pair<double, double> check_chain(vector<Integer>& indice, vector<uint64_t
 
         check_xres(c0, c1, intermediate[i], pivots[i]);
 
+    }
+    clause end_clause = formula -> get(Integer(INDEX_SZ, ptr, PUBLIC));
+    end_clause.poly.Equal(intermediate[intermediate.size()-1].poly);
+    if (last_clause) {
+        vector <uint64_t> empty_literals;
+        clause empty_clause(empty_literals);
+        end_clause.poly.Equal(empty_clause.poly);
     }
     auto timer_3 = chrono::high_resolution_clock::now();
     cost_resolve = chrono::duration<double>(timer_3 - timer_2).count();

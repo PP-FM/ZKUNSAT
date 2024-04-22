@@ -343,7 +343,7 @@ inline void readproof(string filename, int& d, vector<CLS>& clauses, vector<SPT>
                 ss >> word;
                 while (word != "end:") {
                     int i = stoi(word);
-                    pchain.push_back(i);
+                    pchain.push_back(wrap(i));
                     ss >> word;
 //                    nres = nres + 1;
                 }
