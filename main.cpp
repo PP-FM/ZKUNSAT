@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
     formula->check();
 
     auto timer_5 = chrono::high_resolution_clock::now();
-    cost_access = cost_access +  chrono::duration<double>(timer_1 - timer_0).count();
+    cost_access = cost_access +  chrono::duration<double>(timer_5 - timer_4).count();
     cout << "a "<< cost_access << " " << "r " << cost_resolve << " "<< "i "<< cost_input << " t "<< cost_access + cost_resolve + cost_input << endl;
 
 
