@@ -6,6 +6,7 @@
 #define ZKUNSAT_NEW_CLAUSE_H
 
 #include "polynomial.h"
+#include <set>
 
 inline uint64_t  get_negate(uint64_t encode){
     if (encode == 0) return encode;
@@ -57,10 +58,14 @@ inline std::vector<polynomial> witness_generator(clause& a, clause& b, clause& r
     GF2EX pivot_p = get_GF2EX_with_roots(pv);
     GF2EX neg_pivot_p = get_GF2EX_with_roots(npv);
 
-    int party = ostriple->party;
+    int party = bb()->party;
     if (party == ALICE) {
-        assert(divide(w0, resp*pivot_p, ap));
-        assert(divide(w1, resp*neg_pivot_p, bp));
+        // NB: divide() has the side effect of computing the witness quotient,
+        // so it must NOT be wrapped in assert() (which is compiled out under
+        // NDEBUG / Release builds). resp*pivot_p must be divisible by ap.
+        if (!divide(w0, resp * pivot_p, ap) ||
+            !divide(w1, resp * neg_pivot_p, bp))
+            error("witness_generator: non-exact polynomial division");
     }
     polynomial res0, res1;
     GF2EX2polynomial(w0, res0);

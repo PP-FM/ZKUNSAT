@@ -21,57 +21,6 @@ using namespace emp;
 
 #define RAM_VAL_SZ 4
 
-inline void gfmul_test (__m128i a, __m128i b, __m128i *res) {
-		__m128i  tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9;
-
-		// mul128(a, b, &tmp3, &tmp6);
-		tmp3 = _mm_clmulepi64_si128(a, b, 0x00); 
-        tmp4 = _mm_clmulepi64_si128(a, b, 0x10); 
-        tmp5 = _mm_clmulepi64_si128(a, b, 0x01); 
-        tmp6 = _mm_clmulepi64_si128(a, b, 0x11); 
-
-        tmp4 = _mm_xor_si128(tmp4, tmp5); 
-        tmp5 = _mm_slli_si128(tmp4, 8); 
-		tmp4 = _mm_srli_si128(tmp4, 8); 
-        tmp3 = _mm_xor_si128(tmp3, tmp5); 
-        tmp6 = _mm_xor_si128(tmp6, tmp4); 
-        
-        
-        tmp7 = _mm_srli_epi32(tmp3, 31);
-		tmp8 = _mm_srli_epi32(tmp6, 31);
-		tmp3 = _mm_slli_epi32(tmp3, 1);
-		tmp6 = _mm_slli_epi32(tmp6, 1);
-
-		tmp9 = _mm_srli_si128(tmp7, 12);
-		tmp8 = _mm_slli_si128(tmp8, 4);
-		tmp7 = _mm_slli_si128(tmp7, 4);
-		tmp3 = _mm_or_si128(tmp3, tmp7);
-		tmp6 = _mm_or_si128(tmp6, tmp8);
-		tmp6 = _mm_or_si128(tmp6, tmp9);
-
-		tmp7 = _mm_slli_epi32(tmp3, 31);
-		tmp8 = _mm_slli_epi32(tmp3, 30);
-		tmp9 = _mm_slli_epi32(tmp3, 25);
-		
-        tmp7 = _mm_xor_si128(tmp7, tmp8);
-		tmp7 = _mm_xor_si128(tmp7, tmp9);
-		tmp8 = _mm_srli_si128(tmp7, 4);
-		tmp7 = _mm_slli_si128(tmp7, 12);
-		tmp3 = _mm_xor_si128(tmp3, tmp7);
-
-		tmp2 = _mm_srli_epi32(tmp3, 1);
-		tmp4 = _mm_srli_epi32(tmp3, 2);
-		tmp5 = _mm_srli_epi32(tmp3, 7);
-		tmp2 = _mm_xor_si128(tmp2, tmp4);
-		tmp2 = _mm_xor_si128(tmp2, tmp5);
-		tmp2 = _mm_xor_si128(tmp2, tmp8);
-		tmp3 = _mm_xor_si128(tmp3, tmp2);
-        tmp6 = _mm_xor_si128(tmp6, tmp3);
-		*res = tmp5;
-	}
-
-
-
 /* Encode literal: the highest bit indicates the sign of that literal;
  * the rest bits indicate the value of the index;
  * for example: x2 is encoded as [1,0, ..., 0, 1, 0] , and not x2 is encoded as [0,0, ..., 0, 1, 0];
@@ -79,7 +28,6 @@ inline void gfmul_test (__m128i a, __m128i b, __m128i *res) {
  * used by prover locally;
  */
 const block one_block = makeBlock(0, 1);
-inline GaloisFieldPacking gp;
 
 inline uint64_t wrap(int64_t input){
     uint64_t  res = 0UL;
@@ -92,50 +40,6 @@ inline uint64_t wrap(int64_t input){
         res = res | 1UL<<(VAL_SZ-1);
     }
     return  res;
-}
-
-
-//get mac of val
-
-inline void pack(block& mac, const Integer& val, int size = VAL_SZ) {
-    block res;
-    vector_inn_prdt_sum_red(&res, (block*)(val.bits.data()), gp.base, size);
-    mac = res;
-}
-
-
-/*
- * multiply a committed value x by cst; mac of x is m;
- * val = m * cst;
- * mac is the mac of val;
- */
-
-inline void multiply_const(block &val, block &mac,
-                           const block& x, const block& m, const block& cst, int party) {
-                            
-    // cout << "=====before ==== \n";
-    // cout << (cst) << endl; 
-    //  cout << (x) << endl;     
-    // cout << (val) << endl;                       
-    if(party == ALICE) {
-        gfmul(x, cst, &val);//   cout << mac << endl;
-    }
-    gfmul(m, cst, &mac);
-    // cout << "====after ===== \n";
-    // cout << (cst) << endl; 
-    // cout << (x) << endl;     
-    // cout << (val) << endl; 
- }
-
-/*
- * compute addition of vala and valb;
- * valc = vala + valb; maca is mac of a, macb is mac of b;
- * macc = mac(valc)
- */
-inline void compute_xor(block &valc, block &macc,
-                        const block vala, const block maca, const block valb, const block macb){
-    valc = vala ^ valb;
-    macc = maca ^ macb;
 }
 
 
@@ -157,9 +61,10 @@ inline block encode(int64_t input){
     return  (block) get_128uint_from_uint64(res) ;
 }
 
+// Debug helper: open one authenticated wire and check its MAC. X/MAC are the
+// caller's local (value, mac) shares; the verifier folds Δ to verify.
 inline void check_MAC_valid(block X, block MAC) {
-    BoolIO<NetIO>* io = ostriple->io;
-    int party = ostriple->party;
+    int party = bb()->party;
     if(party == ALICE) {
         io->send_data(&X, sizeof(block));
         io->send_data(&MAC, sizeof(block));
@@ -170,7 +75,7 @@ inline void check_MAC_valid(block X, block MAC) {
         block M = zero_block, x = zero_block;
         io->recv_data(&x, sizeof(block));
         io->recv_data(&M, sizeof(block));
-        gfmul(x, ostriple->delta, &x);
+        gfmul(x, bb()->delta, &x);
         x = x ^ MAC;
         if (memcmp(&x, &M, sizeof(block))!=0) {
             int64_t  res = 0;
@@ -187,16 +92,20 @@ inline void check_MAC_valid(block X, block MAC) {
 
 /*
  * check if a block is a mac of zero.
- * It is an accumulator that takes all mac blocks to be check
+ * It is an accumulator that takes all mac blocks to be checked.
  * At the end of the proof, prover by setting end = 1 will hash all blocks, and send it to verifier.
+ *
+ * Each authenticated wire satisfies mac_A == key_B ^ val·Δ, so for a wire
+ * committed to zero the prover's mac equals the verifier's key. Both sides
+ * feed their own .mac share here; if every wire is really zero the two
+ * accumulated digests match.
 */
 
 inline void check_zero_MAC(block MAC, int end = 0) {
     static Hash hash;
     hash.put(&MAC, sizeof(block));
     if (end == 1){
-        BoolIO<NetIO>* io = ostriple->io;
-        int party = ostriple->party;
+        int party = bb()->party;
         char dig[Hash::DIGEST_SIZE];
         hash.digest(dig);
 
@@ -235,11 +144,8 @@ inline void padding(vector<uint64_t>& input){
 
 inline void block2GF(GF2E& res, const block a ){
     GF2X raw;
-    //  cout <<(a) << endl;
     auto low = _mm_extract_epi64(a, 0);
     auto high = _mm_extract_epi64(a, 1);
-    // cout << low << endl;
-    //cout << high << endl;
 
     raw.SetMaxLength(128);
     for(int i = 0; i < 64; i++){
@@ -264,17 +170,6 @@ inline void inverse(block& inv, block& input){
         if (IsOne(NTL::coeff(raw, i)))
             inv = set_bit(inv, i);
     }
-}
-
-inline void fill_data_and_mac(block& d, block& m){
-    if (data_mac_pointer == svole->param.n){
-        svole->extend_inplace(data, mac, svole->param.n);
-        data_mac_pointer = 0;
-    }
-    d = data[data_mac_pointer];
-    m = mac[data_mac_pointer];
-    data_mac_pointer = data_mac_pointer + 1;
-
 }
 
 inline GF2EX get_GF2EX_with_roots(vector<uint64_t>& roots){

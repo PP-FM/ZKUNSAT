@@ -4,43 +4,26 @@
 #include "commons.h"
 
 int port, party;
-const int threads = 8;
 int DEGREE = 4;
-block *mac, *data;
-uint64_t data_mac_pointer;
-SVoleF2k <BoolIO<NetIO>> *svole;
-F2kOSTriple <BoolIO<NetIO>> *ostriple;
 uint64_t constant;
-BoolIO <NetIO> *io;
+BoolIO *io;
 
 int main(int argc, char **argv) {
     cout << "---- begin ----" << endl;
     constant = 1UL << (VAL_SZ - 2);
     parse_party_and_port(argv, &party, &port);
-    BoolIO <NetIO> *ios[threads];
-    for (int i = 0; i < threads; ++i)
-        ios[i] = new BoolIO<NetIO>(new NetIO(party == ALICE ? nullptr : argv[3], port + i), party == ALICE);       
+
+    // Single-threaded in the new emp-zk: one NetIO wrapped in one BoolIO,
+    // which carries both the gate-level bit stream and Ferret's OT data and
+    // owns the Fiat-Shamir transcript on its inner channel.
+    NetIO *netio = new NetIO(party == ALICE ? nullptr : argv[3], port);
+    io = new BoolIO(netio, party == ALICE);
     char *prooffile = argv[4];
 
-    setup_zk_bool < BoolIO < NetIO >> (ios, threads, party);
-    ZKBoolCircExec <BoolIO<NetIO>> *exec = (ZKBoolCircExec < BoolIO < NetIO >> *)(CircuitExecution::circ_exec);
-    io = exec->ostriple->io;
-
-    ostriple = new F2kOSTriple <BoolIO<NetIO>>(party, exec->ostriple->threads, exec->ostriple->ios,
-                                               exec->ostriple->ferret, exec->ostriple->pool);
-    svole = ostriple->svole;
-
-    data_mac_pointer = 0;
-    uint64_t test_n = svole->param.n;;
-    uint64_t mem_need = svole->byte_memory_need_inplace(test_n);
-
-    data = new block[svole->param.n];
-    mac = new block[svole->param.n];
-    svole->extend_inplace(data, mac, svole->param.n);
+    setup_zk_bool(io, party);
     cout << "----set up----" << endl;
 
     GF2X P;
-//    random(P, 128);
     SetCoeff(P, 128, 1);
     SetCoeff(P, 7, 1);
     SetCoeff(P, 2, 1);
@@ -79,7 +62,6 @@ int main(int argc, char **argv) {
     cout << "nres " << nres << endl;
     cout << "ncls " << ncls << endl;
     cout << "DEGREE " << DEGREE << endl;
-    //if ( ncls > 524287) return 0; 
 
     double cost_input = 0;
     double cost_resolve = 0;
@@ -121,7 +103,20 @@ int main(int argc, char **argv) {
         clause c(literals);
         raw_formula.push_back(c);
     }
-    clauseRAM<BoolIO<NetIO>>* formula = new clauseRAM<BoolIO<NetIO>>(party, INDEX_SZ);
+
+    // Bound on the number of formula->get() lookups, used to size the ROM
+    // timestamps. Each resolution reads its support chain plus the resolved
+    // clause. ALICE knows the chain lengths and shares the total.
+    int64_t max_reads = 0;
+    if (party == ALICE) {
+        for (int64_t i = ncls - nres; i < ncls; i++)
+            max_reads += (int64_t)supports[i].size() + 1;
+        io->send_data(&max_reads, 8);
+    } else {
+        io->recv_data(&max_reads, 8);
+    }
+
+    clauseRAM* formula = new clauseRAM(party, INDEX_SZ, max_reads);
     formula->init(raw_formula);
     cout <<"finish  input!\n";
     auto timer_1 = chrono::high_resolution_clock::now();
@@ -197,19 +192,20 @@ int main(int argc, char **argv) {
     cost_access = cost_access +  chrono::duration<double>(timer_5 - timer_4).count();
     cout << "a "<< cost_access << " " << "r " << cost_resolve << " "<< "i "<< cost_input << " t "<< cost_access + cost_resolve + cost_input << endl;
 
+    // Tear down the RAM (runs its permutation checks' cleanup) before the
+    // backend, then finalize the backend. A cheating prover triggers error()
+    // inside the ROM / MAC checks or the backend teardown.
+    delete formula;
+    finalize_zk_bool();
 
-    bool cheat = finalize_zk_bool<BoolIO<NetIO>>();
-    if(cheat)error("cheat!\n");
-
-    uint64_t  counter = 0;
-
-    for(int i = 0; i < threads; ++i) {
-        counter = ios[i]->counter + counter;
-        delete ios[i]->io;
-        delete ios[i];
-    }
+    // Total bytes across the proof live on the inner channel: byte sends are
+    // forwarded through it and gate bits are flushed straight into it.
+    uint64_t counter = netio->send_counter + netio->recv_counter;
     cout << "communication:" << counter << endl;
     cout << "----end----" << endl;
+
+    delete io;
+    delete netio;
     return 0;
 
 }

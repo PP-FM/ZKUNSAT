@@ -4,29 +4,13 @@
 
 #include "polynomial.h"
 
+// Commit a list of cleartext coefficients as authenticated f2k wires. On the
+// verifier the coefficient values are ignored (f2k_input zeroes the val lane);
+// both parties must commit the same number in the same order so the underlying
+// VOLE draws and masking-difference exchange stay in lockstep.
 polynomial::polynomial(vector<block> _coefficient) {
-    vector<block> mcoefficient;
-    vector<block> coefficient;
-    for (int i = 0; i < _coefficient.size(); i ++){
-        block d, m;
-        fill_data_and_mac(d, m);
-        if (ostriple->party == ALICE) {
-            block diff_coefficient;
-            diff_coefficient= d^_coefficient[i];
-            ostriple->io ->send_data(&diff_coefficient, sizeof(block));
-            coefficient.push_back(_coefficient[i]);
-            mcoefficient.push_back(m);
-        }
-        if (ostriple->party == BOB){
-            block diff_coefficient;
-            ostriple->io ->recv_data(&diff_coefficient, sizeof(block));
-            gfmul(ostriple->delta, diff_coefficient, &diff_coefficient);
-            coefficient.push_back(d);
-            mcoefficient.push_back(m ^diff_coefficient);
-        }
-    }
-    this->coefficient = coefficient;
-    this->mcoefficient = mcoefficient;
+    for (auto &c : _coefficient)
+        coeff.push_back(bb()->f2k_input(c));
 }
 
 polynomial::polynomial(vector <uint64_t> roots) {
@@ -50,128 +34,75 @@ polynomial::polynomial(vector <uint64_t> roots) {
     }
 
     std::vector<block> _coefficient;
-
     for (long i = 0; i < DEGREE; i ++){
         GF2E c = NTL::coeff(res, i);
         GF2X raw = c._GF2E__rep;
         block tmp = zero_block;
-        for(int i = 0; i < 128; i++){
-            if (IsOne(NTL::coeff(raw, i)))
-                tmp = set_bit(tmp, i);
+        for(int j = 0; j < 128; j++){
+            if (IsOne(NTL::coeff(raw, j)))
+                tmp = set_bit(tmp, j);
         }
         _coefficient.push_back(tmp);
     }
-    vector<block> mcoefficient;
-    vector<block> coefficient;
-    for (int i = 0; i < DEGREE; i ++){
-        block d, m;
-        fill_data_and_mac(d, m);
-
-        if (ostriple->party == ALICE) {
-            block diff_coefficient;
-            diff_coefficient= d^_coefficient[i];
-            ostriple->io ->send_data(&diff_coefficient, sizeof(block));
-            coefficient.push_back(_coefficient[i]);
-            mcoefficient.push_back(m);
-        }
-        if (ostriple->party == BOB){
-            block diff_coefficient;
-            ostriple->io ->recv_data(&diff_coefficient, sizeof(block));
-            gfmul(ostriple->delta, diff_coefficient, &diff_coefficient);
-            coefficient.push_back(d);
-            mcoefficient.push_back(m ^diff_coefficient);
-        }
-    }
-    this->coefficient = coefficient;
-    this->mcoefficient = mcoefficient;
+    for (auto &c : _coefficient)
+        coeff.push_back(bb()->f2k_input(c));
 }
 
-void polynomial::Evaluate(block &res, block &mres, block &input) const {
-    // cout << (input) << endl; 
-    int degree = this->coefficient.size(); 
+// Horner: res = ((c[d-1]·x + c[d-2])·x + … )·x + c[0]. Multiply-by-public-x and
+// add-coefficient are both local f2k ops, so an evaluation is communication-free.
+F2kAuthValue polynomial::Evaluate(block input) const {
+    int degree = (int)this->coeff.size();
     assert(degree > 2);
-    multiply_const(res, mres, this->coefficient[degree-1], this->mcoefficient[degree-1], input, ostriple->party);
-    // cout << "degree " << degree -1  << ": " << (res) << endl; 
-    compute_xor(res, mres, res, mres, this->coefficient[degree-2], this->mcoefficient[degree-2]);
-    // cout << "degree " << degree - 2 << ": " << (res) << endl; 
+    F2kAuthValue res = bb()->f2k_mul_const(coeff[degree-1], input);
+    res = bb()->f2k_add(res, coeff[degree-2]);
     for (int i = degree-3; i > -1; i--){
-       // cout << "input " << (input) << endl; 
-        multiply_const(res, mres, res, mres, input, ostriple->party);
-      //  cout << "degree  mul " << i << ": " << (res) << endl; 
-        // check_MAC_valid(res, mres);
-        compute_xor(res, mres, res, mres, this->coefficient[i] ,this->mcoefficient[i]);
-       // cout << "degree  xor " << i << ": " << (res) << endl; 
-        // check_MAC_valid(res, mres);
+        res = bb()->f2k_mul_const(res, input);
+        res = bb()->f2k_add(res, coeff[i]);
     }
+    return res;
 }
 
 void polynomial::Equal(const polynomial& lhs) const{
     io->flush();
-    block r = io->get_hash_block();
-    // cout << r << endl;
-    block res[2], mac[2];
-    this->Evaluate(res[0], mac[0], r);
-    // cout << "?????" << endl;
-    lhs.Evaluate(res[1], mac[1], r);
-    check_zero_MAC(mac[0]^mac[1]);
-    // cout << (mac[0]^mac[1] ) << endl; 
+    block r = io->io->get_digest();
+    F2kAuthValue a = this->Evaluate(r);
+    F2kAuthValue b = lhs.Evaluate(r);
+    check_zero_MAC(a.mac ^ b.mac);
 }
 
 void polynomial::InnerProductEqual(vector<polynomial> &p1, vector<polynomial> &p2) {
     io->flush();
-    block r =io->get_hash_block();
+    block r = io->io->get_digest();
     int d = p1.size();
     assert(p1.size() == p2.size());
-    block res = zero_block;
-    block mres = zero_block;
+    F2kAuthValue acc{zero_block, zero_block};
     for (int  i = 0; i < d; i ++){
-        block tmp, mt, xx, xm, yy, ym;
-        p1[i].Evaluate(xx, xm, r);
-        p2[i].Evaluate(yy, ym, r);
-        ostriple->compute_mul(tmp, mt, xx, xm, yy, ym);
-        res = res ^ tmp;
-        mres = mres ^ mt;
+        F2kAuthValue x = p1[i].Evaluate(r);
+        F2kAuthValue y = p2[i].Evaluate(r);
+        F2kAuthValue prod;
+        bb()->f2k_mul(prod, x, y);
+        acc = bb()->f2k_add(acc, prod);
     }
-    block resp, mresp;
-    this->Evaluate(resp, mresp, r);
-    check_zero_MAC(mresp^mres);
-   
+    F2kAuthValue self = this->Evaluate(r);
+    check_zero_MAC(self.mac ^ acc.mac);
 }
 
 void polynomial::ProductEqual(polynomial& p1, polynomial &p2) {
     io->flush();
-    block r =io->get_hash_block();
-    block res = zero_block;
-    block mres = zero_block;
-    block xx, xm, yy, ym;
-    p1.Evaluate(xx, xm, r);
-    p2.Evaluate(yy, ym, r);
-    ostriple->compute_mul(res, mres, xx, xm, yy, ym);
-    block resp, mresp;
-    this->Evaluate(resp, mresp, r);
-
-    check_zero_MAC(mresp^mres );
-    // cout << " product block: " << (mresp^mres)  << endl; 
+    block r = io->io->get_digest();
+    F2kAuthValue x = p1.Evaluate(r);
+    F2kAuthValue y = p2.Evaluate(r);
+    F2kAuthValue prod;
+    bb()->f2k_mul(prod, x, y);
+    F2kAuthValue self = this->Evaluate(r);
+    check_zero_MAC(self.mac ^ prod.mac);
 }
 
 void polynomial::ConverseCheck(polynomial & lhs) {
-    // for (int i = 0; i < this-> coefficient.size(); i ++) cout << i << ":" << (this-> coefficient[i]) << ", mac: " << (this-> mcoefficient[i]) << endl; 
-    // cout << "========\n";
-    // for (int i = 0; i < lhs.coefficient.size(); i ++) cout << (lhs.coefficient[i]) << ", mac: " << (lhs.mcoefficient[i]) << endl; 
-
-
     io->flush();
-    block r =io->get_hash_block();
-    //  cout << "====last coefficient=======" << endl;
-    block converse_r = ((block) get_128uint_from_uint64(constant))^r;
-    // cout << (lhs.coefficient[0] ^ this -> coefficient[0]) << endl; 
-    //  cout << (converse_r) << endl; 
-    //  cout << (r) << endl; 
-    block xx, xm, yy, ym;
- //   cout << "====rhs =======" << endl;
-    this->Evaluate(xx, xm, r);
-    // cout << "====lhs =======" << endl;
-    lhs.Evaluate(yy, ym, converse_r);
-    check_zero_MAC(xm^ym);
-    // cout << "converse block: " << (xx ^ yy)  << endl; 
+    block r = io->io->get_digest();
+    block converse_r = ((block) get_128uint_from_uint64(constant)) ^ r;
+    F2kAuthValue x = this->Evaluate(r);
+    F2kAuthValue y = lhs.Evaluate(converse_r);
+    check_zero_MAC(x.mac ^ y.mac);
 }
